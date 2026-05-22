@@ -1,0 +1,25 @@
+{
+  "name": "harness-test",
+  "description": "Test agent for harness hook integration",
+  "hooks": {
+    "preToolUse": [
+      {
+        "matcher": "shell",
+        "command": "bash /Users/zhenyin/genai_demo/harness/feedback/test_hooks/safety_guard_kiro.sh"
+      },
+      {
+        "matcher": "fs_write",
+        "command": "bash /Users/zhenyin/genai_demo/harness/feedback/test_hooks/safety_guard_kiro.sh"
+      },
+      {
+        "matcher": "shell",
+        "command": "python3 /Users/zhenyin/genai_demo/harness/feedback/test_hooks/input_modifier_kiro.py"
+      }
+    ],
+    "stop": [
+      {
+        "command": "bash /Users/zhenyin/genai_demo/harness/feedback/test_hooks/stop_gate_kiro.sh"
+      }
+    ]
+  }
+}
