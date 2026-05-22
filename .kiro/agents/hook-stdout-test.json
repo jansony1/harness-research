@@ -1,0 +1,20 @@
+{
+  "name": "hook-stdout-test",
+  "description": "Test whether preToolUse/postToolUse STDOUT is injected into LLM context",
+  "tools": ["execute_bash", "fs_read", "fs_write"],
+  "allowedTools": ["execute_bash", "fs_read"],
+  "hooks": {
+    "preToolUse": [
+      {
+        "matcher": "shell",
+        "command": "echo 'PRE_TOOL_CONTEXT_INJECT: MAGIC_MARKER_ALPHA_7742 — This text was output by preToolUse hook STDOUT. If the LLM can read this, preToolUse STDOUT is injected into context.'"
+      }
+    ],
+    "postToolUse": [
+      {
+        "matcher": "shell",
+        "command": "echo 'POST_TOOL_CONTEXT_INJECT: MAGIC_MARKER_BETA_9931 — This text was output by postToolUse hook STDOUT. If the LLM can read this, postToolUse STDOUT is injected into context.'"
+      }
+    ]
+  }
+}

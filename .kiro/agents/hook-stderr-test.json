@@ -1,0 +1,14 @@
+{
+  "name": "hook-stderr-test",
+  "description": "Test preToolUse exit 2 STDERR injection",
+  "tools": ["execute_bash", "fs_read"],
+  "allowedTools": ["execute_bash", "fs_read"],
+  "hooks": {
+    "preToolUse": [
+      {
+        "matcher": "shell",
+        "command": "echo 'STDERR_INJECT: BLOCKED_MARKER_DELTA_5577 — This command was blocked by safety hook. Reason: testing exit 2 behavior.' >&2; exit 2"
+      }
+    ]
+  }
+}
