@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Board — Pixel Quest</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Press Start 2P', monospace;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  min-height: 100vh;
+  image-rendering: pixelated;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+h1 {
+  text-align: center;
+  color: #ffd700;
+  font-size: 18px;
+  margin-bottom: 8px;
+  text-shadow: 2px 2px 0 #333;
+}
+
+.subtitle {
+  text-align: center;
+  color: #888;
+  font-size: 8px;
+  margin-bottom: 30px;
+}
+
+/* Party Panel */
+.party-panel {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
+}
+
+.agent-card {
+  background: #16213e;
+  border: 3px solid #0f3460;
+  padding: 12px;
+  min-width: 200px;
+  flex: 1;
+  position: relative;
+  transition: border-color 0.3s;
+}
+
+.agent-card.active { border-color: #4ecca3; }
+.agent-card.idle { border-color: #555; opacity: 0.7; }
+.agent-card.blocked { border-color: #e74c3c; }
+
+.agent-name {
+  font-size: 10px;
+  color: #4ecca3;
+  margin-bottom: 8px;
+}
+
+.agent-card.blocked .agent-name { color: #e74c3c; }
+
+.agent-status {
+  font-size: 7px;
+  color: #aaa;
+  margin-bottom: 6px;
+}
+
+.agent-task {
+  font-size: 7px;
+  color: #ffd700;
+  border-top: 1px solid #333;
+  padding-top: 6px;
+  margin-top: 6px;
+}
+
+.hp-bar {
+  width: 100%;
+  height: 8px;
+  background: #333;
+  margin-top: 8px;
+  border: 1px solid #555;
+}
+
+.hp-fill {
+  height: 100%;
+  background: #4ecca3;
+  transition: width 0.5s;
+}
+
+.hp-fill.low { background: #e74c3c; }
+.hp-fill.mid { background: #f39c12; }
+
+.sprite {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  font-size: 20px;
+}
+
+/* Task Board */
+.board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 30px;
+}
+
+.column {
+  background: #16213e;
+  border: 2px solid #0f3460;
+  min-height: 200px;
+}
+
+.column-header {
+  background: #0f3460;
+  padding: 8px;
+  font-size: 8px;
+  text-align: center;
+  color: #ffd700;
+}
+
+.column-header.planning { background: #2c3e50; }
+.column-header.progress { background: #1a5276; }
+.column-header.done { background: #1e4620; }
+
+.task-list {
+  padding: 8px;
+}
+
+.task-item {
+  background: #1a1a2e;
+  border: 2px solid #333;
+  padding: 8px;
+  margin-bottom: 6px;
+  font-size: 7px;
+  line-height: 1.6;
+  cursor: default;
+  transition: border-color 0.2s;
+}
+
+.task-item:hover { border-color: #4ecca3; }
+
+.task-title { color: #e0e0e0; margin-bottom: 4px; }
+.task-assignee { color: #4ecca3; font-size: 6px; }
+.task-priority {
+  display: inline-block;
+  padding: 1px 4px;
+  font-size: 6px;
+  margin-left: 4px;
+}
+.task-priority.high { background: #e74c3c; color: #fff; }
+.task-priority.mid { background: #f39c12; color: #000; }
+.task-priority.low { background: #2ecc71; color: #000; }
+
+/* Message Log */
+.log-panel {
+  background: #0d0d1a;
+  border: 2px solid #0f3460;
+  padding: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+  font-size: 7px;
+  line-height: 2;
+}
+
+.log-panel .log-entry {
+  border-bottom: 1px solid #1a1a2e;
+  padding: 4px 0;
+}
+
+.log-entry .time { color: #555; }
+.log-entry .agent { color: #4ecca3; }
+.log-entry .msg { color: #aaa; }
+.log-entry .msg.error { color: #e74c3c; }
+.log-entry .msg.success { color: #2ecc71; }
+
+/* Refresh indicator */
+.refresh-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: #4ecca3;
+  border-radius: 50%;
+  margin-left: 8px;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* Controls */
+.controls {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  padding: 8px 16px;
+  background: #0f3460;
+  color: #4ecca3;
+  border: 2px solid #4ecca3;
+  cursor: pointer;
+  margin: 0 4px;
+}
+
+.btn:hover { background: #4ecca3; color: #0f3460; }
+.btn:active { transform: translateY(2px); }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>⚔️ AGENT BOARD ⚔️</h1>
+  <p class="subtitle">PARTY STATUS <span class="refresh-dot"></span> AUTO-REFRESH 2s</p>
+
+  <!-- Party Panel -->
+  <div class="party-panel" id="party"></div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button class="btn" onclick="addTask()">+ NEW QUEST</button>
+    <button class="btn" onclick="addAgent()">+ RECRUIT</button>
+    <button class="btn" onclick="clearLog()">CLEAR LOG</button>
+  </div>
+
+  <!-- Task Board -->
+  <div class="board">
+    <div class="column">
+      <div class="column-header planning">📋 PLANNING</div>
+      <div class="task-list" id="tasks-planning"></div>
+    </div>
+    <div class="column">
+      <div class="column-header progress">⚔️ IN PROGRESS</div>
+      <div class="task-list" id="tasks-progress"></div>
+    </div>
+    <div class="column">
+      <div class="column-header done">✅ DONE</div>
+      <div class="task-list" id="tasks-done"></div>
+    </div>
+  </div>
+
+  <!-- Message Log -->
+  <div class="log-panel" id="log"></div>
+</div>
+
+<script>
+const STATE_URL = './state.json';
+const SPRITES = ['🤖', '🧙', '🗡️', '🛡️', '🏹', '⚡', '🔮', '🐉'];
+let lastState = null;
+
+async function fetchState() {
+  try {
+    const resp = await fetch(STATE_URL + '?t=' + Date.now());
+    if (!resp.ok) return null;
+    return await resp.json();
+  } catch { return null; }
+}
+
+function renderParty(agents) {
+  const el = document.getElementById('party');
+  el.innerHTML = agents.map((a, i) => {
+    const statusClass = a.status === 'working' ? 'active' : a.status === 'blocked' ? 'blocked' : 'idle';
+    const progress = a.progress || 0;
+    const hpClass = progress > 60 ? '' : progress > 30 ? 'mid' : 'low';
+    return `
+      <div class="agent-card ${statusClass}">
+        <span class="sprite">${SPRITES[i % SPRITES.length]}</span>
+        <div class="agent-name">${a.name}</div>
+        <div class="agent-status">${a.status.toUpperCase()} ${a.status === 'working' ? '...' : ''}</div>
+        <div class="agent-task">${a.current_task || 'No active quest'}</div>
+        <div class="hp-bar"><div class="hp-fill ${hpClass}" style="width:${progress}%"></div></div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderTasks(tasks) {
+  ['planning', 'progress', 'done'].forEach(status => {
+    const el = document.getElementById('tasks-' + status);
+    const filtered = tasks.filter(t => t.status === status);
+    el.innerHTML = filtered.map(t => `
+      <div class="task-item">
+        <div class="task-title">${t.title}</div>
+        <span class="task-assignee">${t.assignee || 'unassigned'}</span>
+        <span class="task-priority ${t.priority || 'mid'}">${(t.priority || 'MID').toUpperCase()}</span>
+      </div>
+    `).join('') || '<div style="color:#555;font-size:7px;padding:8px;">Empty</div>';
+  });
+}
+
+function renderLog(messages) {
+  const el = document.getElementById('log');
+  el.innerHTML = messages.slice(-20).map(m => `
+    <div class="log-entry">
+      <span class="time">[${m.time}]</span>
+      <span class="agent">${m.agent}:</span>
+      <span class="msg ${m.type || ''}">${m.text}</span>
+    </div>
+  `).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function addTask() {
+  const title = prompt('Quest name:');
+  if (!title) return;
+  const assignee = prompt('Assign to (agent name, or empty):') || '';
+  const priority = prompt('Priority (high/mid/low):') || 'mid';
+  postUpdate({ action: 'add_task', task: { title, assignee, priority, status: 'planning' } });
+}
+
+function addAgent() {
+  const name = prompt('Agent name:');
+  if (!name) return;
+  postUpdate({ action: 'add_agent', agent: { name, status: 'idle', current_task: null, progress: 0 } });
+}
+
+function clearLog() {
+  postUpdate({ action: 'clear_log' });
+}
+
+async function postUpdate(data) {
+  try {
+    await fetch('./update', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+  } catch (e) {
+    console.log('Update failed (if using static file, edit state.json manually)');
+    // Fallback: modify state locally
+    if (!lastState) return;
+    if (data.action === 'add_task') lastState.tasks.push(data.task);
+    if (data.action === 'add_agent') lastState.agents.push(data.agent);
+    if (data.action === 'clear_log') lastState.messages = [];
+    render(lastState);
+  }
+}
+
+function render(state) {
+  if (!state) return;
+  lastState = state;
+  renderParty(state.agents || []);
+  renderTasks(state.tasks || []);
+  renderLog(state.messages || []);
+}
+
+async function poll() {
+  const state = await fetchState();
+  if (state) render(state);
+  setTimeout(poll, 2000);
+}
+
+// Initial demo state if no server
+const DEMO_STATE = {
+  agents: [
+    { name: "Claude", status: "working", current_task: "Implement safety-guard", progress: 75 },
+    { name: "Kiro", status: "working", current_task: "Test hook compatibility", progress: 40 },
+    { name: "Cursor", status: "idle", current_task: null, progress: 0 }
+  ],
+  tasks: [
+    { title: "Safety guard — PreToolUse block", status: "done", assignee: "Claude", priority: "high" },
+    { title: "Loop breaker — PostToolBatch", status: "done", assignee: "Claude", priority: "high" },
+    { title: "Kiro hook compatibility test", status: "progress", assignee: "Kiro", priority: "mid" },
+    { title: "Platform adapter integration", status: "planning", assignee: "", priority: "low" },
+    { title: "Session logger", status: "planning", assignee: "", priority: "low" }
+  ],
+  messages: [
+    { time: "10:01", agent: "Claude", text: "Started safety-guard implementation", type: "" },
+    { time: "10:15", agent: "Claude", text: "30 test scenarios passing", type: "success" },
+    { time: "10:22", agent: "Kiro", text: "PreToolUse exit 2 verified working", type: "success" },
+    { time: "10:30", agent: "Kiro", text: "PostToolUse STDOUT not injected — confirmed limitation", type: "error" },
+    { time: "10:45", agent: "Claude", text: "Pushed loop-breaker with PIVOT detection", type: "" },
+    { time: "11:00", agent: "Claude", text: "Pushback: signal 6 too aggressive, reverting", type: "error" },
+    { time: "11:10", agent: "Kiro", text: "Agreed — revert detection belongs in pivot-gate", type: "" }
+  ]
+};
+
+// Try to load state.json, fallback to demo
+poll();
+setTimeout(() => { if (!lastState) render(DEMO_STATE); }, 3000);
+</script>
+</body>
+</html>
