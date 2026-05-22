@@ -21,9 +21,15 @@ from pathlib import Path
 STATE_DIR = Path.home() / ".agent-harness" / "state"
 MEMORY_FILE = STATE_DIR / "compact_memory.json"
 
+ARCHITECTURE_PATTERN = re.compile(r"ARCHITECTURE:\s*(.+)", re.IGNORECASE)
 DECISION_PATTERN = re.compile(r"DECISION:\s*(.+)", re.IGNORECASE)
 TASK_PATTERN = re.compile(r"TASK:\s*(.+)", re.IGNORECASE)
+TASK_DONE_PATTERN = re.compile(r"TASK_DONE:\s*(.+)", re.IGNORECASE)
 CRITICAL_PATTERN = re.compile(r"CRITICAL:\s*(.+)", re.IGNORECASE)
+CONTEXT_PATTERN = re.compile(r"CONTEXT:\s*(.+)", re.IGNORECASE)
+
+# Type grading: ARCHITECTURE/CRITICAL never auto-expire, TASK clears on TASK_DONE, CONTEXT is FIFO(5)
+MAX_CONTEXT_ITEMS = 5
 
 
 def load_memory() -> dict:
@@ -36,9 +42,11 @@ def load_memory() -> dict:
     return {
         "saved_at": None,
         "session_start": time.time(),
-        "critical_context": [],
-        "decisions": [],
-        "current_task": None,
+        "architecture": [],      # never auto-expire
+        "critical_context": [],  # never auto-expire
+        "decisions": [],         # FIFO(10)
+        "context": [],           # FIFO(5), first to expire
+        "current_task": None,    # cleared on TASK_DONE
         "files_in_progress": [],
         "compact_count": 0,
     }
@@ -64,24 +72,36 @@ def main():
             memory["files_in_progress"].append(path)
             memory["files_in_progress"] = memory["files_in_progress"][-10:]
 
-    # Scan Bash output for markers
+    # Scan Bash output for typed markers
     if tool_name == "Bash":
         stdout = tool_response.get("stdout", "")
 
+        for match in ARCHITECTURE_PATTERN.finditer(stdout):
+            item = match.group(1).strip()[:200]
+            if item not in memory.get("architecture", []):
+                memory.setdefault("architecture", []).append(item)
+
+        for match in CRITICAL_PATTERN.finditer(stdout):
+            item = match.group(1).strip()[:200]
+            if item not in memory["critical_context"]:
+                memory["critical_context"].append(item)
+
         for match in DECISION_PATTERN.finditer(stdout):
-            decision = match.group(1).strip()[:200]
-            if decision not in memory["decisions"]:
-                memory["decisions"].append(decision)
+            item = match.group(1).strip()[:200]
+            if item not in memory["decisions"]:
+                memory["decisions"].append(item)
                 memory["decisions"] = memory["decisions"][-10:]
 
         for match in TASK_PATTERN.finditer(stdout):
             memory["current_task"] = match.group(1).strip()[:200]
 
-        for match in CRITICAL_PATTERN.finditer(stdout):
-            ctx = match.group(1).strip()[:200]
-            if ctx not in memory["critical_context"]:
-                memory["critical_context"].append(ctx)
-                memory["critical_context"] = memory["critical_context"][-10:]
+        for match in TASK_DONE_PATTERN.finditer(stdout):
+            memory["current_task"] = None
+
+        for match in CONTEXT_PATTERN.finditer(stdout):
+            item = match.group(1).strip()[:200]
+            memory.setdefault("context", []).append(item)
+            memory["context"] = memory["context"][-MAX_CONTEXT_ITEMS:]
 
     save_memory(memory)
     json.dump({}, sys.stdout)

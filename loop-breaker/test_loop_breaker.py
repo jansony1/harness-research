@@ -127,6 +127,23 @@ assert code == 2, f"Expected block at budget limit, got exit {code}"
 assert "budget exceeded" in out.get("reason", "")
 print("  PASS: blocked at session budget limit (50 batches)")
 
+# --- Test 7: Revert operation triggers pivot detection ---
+print("\n[Test 7: git revert triggers pivot detection]")
+reset()
+out, code = call_hook([make_bash_call("git checkout -- src/main.py")])
+assert code == 2, f"Expected block for revert, got exit {code}"
+assert "pivot" in out.get("reason", "").lower()
+print("  PASS: git checkout detected as design pivot")
+
+# --- Test 8: Explicit PIVOT declaration ---
+print("\n[Test 8: Explicit PIVOT: marker in output]")
+reset()
+out, code = call_hook([make_bash_call('echo "PIVOT: switching from REST to GraphQL"',
+                                       stdout="PIVOT: switching from REST to GraphQL")])
+assert code == 2, f"Expected block for PIVOT, got exit {code}"
+assert "switching from REST to GraphQL" in out.get("reason", "")
+print("  PASS: explicit PIVOT declaration detected")
+
 print("\n" + "=" * 60)
 print("All tests passed!")
 print("=" * 60)

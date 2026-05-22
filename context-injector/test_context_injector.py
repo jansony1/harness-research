@@ -124,17 +124,42 @@ reset()
 out, code = call_hook("SubagentStop", {"last_assistant_message": "Done."})
 assert code == 2
 assert out.get("decision") == "block"
-assert "too brief" in out.get("reason", "")
-print("  PASS: subagent blocked for insufficient output")
+assert "lacks actionable detail" in out.get("reason", "")
+print("  PASS: subagent blocked for insufficient output (no quality indicators)")
 
-# --- Test 8: SubagentStop — sufficient output passes ---
-print("\n[Test 8: SubagentStop — adequate output passes]")
+# --- Test 8: SubagentStop — short but with quality indicators passes ---
+print("\n[Test 8: SubagentStop — short output with file path passes]")
+reset()
+short_with_path = "Fixed in /src/auth.py:42"
+out, code = call_hook("SubagentStop", {"last_assistant_message": short_with_path})
+assert code == 0
+assert out == {}
+print("  PASS: short output with quality indicator passes")
+
+# --- Test 9: SubagentStop — long output always passes ---
+print("\n[Test 9: SubagentStop — long output passes regardless]")
 reset()
 long_message = "I found the issue in src/auth.py line 42. The token validation is not checking expiry. Here's my recommendation: add a datetime comparison before proceeding."
 out, code = call_hook("SubagentStop", {"last_assistant_message": long_message})
 assert code == 0
 assert out == {}
-print("  PASS: adequate subagent output passes through")
+print("  PASS: long output passes through")
+
+# --- Test 10: UserPromptSubmit — injects reminder when files modified but no tests ---
+print("\n[Test 10: UserPromptSubmit — reminder to run tests]")
+reset()
+# Simulate state with files modified but no tests
+STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+STATE_FILE.write_text(json.dumps({
+    "last_activity": time.time(), "consecutive_failures": 0,
+    "total_failures": 0, "batch_count": 5, "tools_used": {},
+    "files_touched": ["src/a.py", "src/b.py"], "last_checkpoint": 0,
+    "tests_verified": False,
+}))
+out, code = call_hook("UserPromptSubmit", {"prompt": "how's it going?"})
+assert "additionalContext" in out
+assert "modified but tests not yet verified" in out["additionalContext"]
+print(f"  PASS: reminder injected: '{out['additionalContext']}'")
 
 print("\n" + "=" * 60)
 print("All tests passed!")

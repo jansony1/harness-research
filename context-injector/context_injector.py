@@ -14,6 +14,7 @@ Uses `additionalContext` field to add information without modifying tool output.
 
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -26,7 +27,16 @@ SESSION_TIMEOUT = 1800
 # Thresholds
 FAILURE_WARNING_AT = 2        # warn after N consecutive failures
 CHECKPOINT_EVERY_N_BATCHES = 10  # inject checkpoint every N batches
-MIN_SUBAGENT_OUTPUT_LENGTH = 50  # subagent output shorter than this gets flagged
+MIN_SUBAGENT_OUTPUT_LENGTH = 200  # subagent output shorter than this gets checked
+
+# Subagent quality indicators (must have at least one if output is short)
+QUALITY_INDICATORS = re.compile(
+    r"/[\w./]+|"           # file path
+    r"`[^`]+`|"            # code reference
+    r"line\s+\d+|:\d+|"   # line number
+    r"\b(should|recommend|suggest|consider)\b",
+    re.IGNORECASE
+)
 
 
 def load_state() -> dict:
@@ -51,6 +61,7 @@ def new_state() -> dict:
         "tools_used": {},
         "files_touched": [],
         "last_checkpoint": 0,
+        "tests_verified": False,
     }
 
 
@@ -149,20 +160,44 @@ def handle_post_tool_batch(input_data: dict, state: dict) -> dict:
     return {}
 
 
-def handle_subagent_stop(input_data: dict, state: dict) -> dict:
-    """Inject feedback if subagent output seems insufficient."""
-    last_message = input_data.get("last_assistant_message", "")
+def handle_user_prompt_submit(input_data: dict, state: dict) -> dict:
+    """Inject status reminders when user sends a new message."""
+    reminders = []
 
-    if len(last_message.strip()) < MIN_SUBAGENT_OUTPUT_LENGTH:
-        return {
-            "decision": "block",
-            "reason": (
-                "Your response is too brief. Please provide more detail:\n"
-                "- What did you find?\n"
-                "- What files are relevant?\n"
-                "- What's your recommendation?"
-            ),
-        }
+    if state["total_failures"] >= 3:
+        reminders.append(
+            f"[STATUS] {state['total_failures']} failures this session, "
+            f"{state['consecutive_failures']} consecutive."
+        )
+
+    files = state.get("files_touched", [])
+    if files and not state.get("tests_verified"):
+        reminders.append(
+            f"[REMINDER] {len(files)} files modified but tests not yet verified."
+        )
+
+    if reminders:
+        return {"additionalContext": "\n".join(reminders)}
+    return {}
+
+
+def handle_subagent_stop(input_data: dict, state: dict) -> dict:
+    """Block subagent if output lacks substance (short AND no quality indicators)."""
+    last_message = input_data.get("last_assistant_message", "")
+    stripped = last_message.strip()
+
+    if len(stripped) < MIN_SUBAGENT_OUTPUT_LENGTH:
+        has_quality = bool(QUALITY_INDICATORS.search(stripped))
+        if not has_quality:
+            return {
+                "decision": "block",
+                "reason": (
+                    "Your response lacks actionable detail. Please include:\n"
+                    "- Specific file paths or line numbers\n"
+                    "- Code references\n"
+                    "- Concrete recommendations"
+                ),
+            }
 
     return {}
 
@@ -176,6 +211,8 @@ def main():
 
     if hook_event == "SessionStart":
         output = handle_session_start(input_data, state)
+    elif hook_event == "UserPromptSubmit":
+        output = handle_user_prompt_submit(input_data, state)
     elif hook_event == "PostToolUseFailure":
         output = handle_post_tool_failure(input_data, state)
     elif hook_event == "PostToolBatch":

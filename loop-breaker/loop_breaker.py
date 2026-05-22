@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """
 Loop Breaker — PostToolBatch hook that detects when an agent is stuck
-in a loop (repeating similar operations without progress).
+in a loop OR pivoting without approval.
 
 Detection signals:
 1. Same command executed N+ times (exact or fuzzy match)
 2. Same file edited N+ times in a batch window
 3. Alternating pattern (edit → test fail → edit → test fail → ...)
 4. Total batch count exceeds session budget
+5. Revert/reset operations (git checkout, git reset, rm of recent files)
+6. Explicit PIVOT declaration (agent says "PIVOT: reason")
 
 Fires on PostToolBatch — after a parallel batch completes, before next LLM call.
 Can block (exit 2) to stop the agent from continuing.
@@ -31,6 +33,11 @@ MAX_FILE_EDITS = 5              # same file edited too many times
 MAX_BATCHES_PER_SESSION = 50    # total batch budget
 PATTERN_WINDOW = 6              # how many recent batches to check for alternating pattern
 SESSION_TIMEOUT = 1800
+
+REVERT_PATTERN = re.compile(
+    r"git\s+(checkout|restore|reset\s+--hard|revert)\b|rm\s+-rf?\s"
+)
+PIVOT_PATTERN = re.compile(r"PIVOT:\s*(.+)", re.IGNORECASE)
 
 
 def load_state() -> dict:
@@ -160,6 +167,23 @@ def detect_loops(state: dict, tool_calls: list) -> list[str]:
         reasons.append(
             f"Session budget exceeded: {state['batch_count']}/{MAX_BATCHES_PER_SESSION} batches"
         )
+
+    # 6. Revert/reset operations (pivot signal)
+    for cmd in commands:
+        if REVERT_PATTERN.search(cmd):
+            reasons.append(
+                f"Design pivot detected — revert operation: '{cmd[:60]}'"
+            )
+
+    # 7. Explicit PIVOT declaration
+    for call in tool_calls:
+        if call.get("tool_name") == "Bash":
+            stdout = call.get("tool_response", {}).get("stdout", "")
+            pivot_match = PIVOT_PATTERN.search(stdout)
+            if pivot_match:
+                reasons.append(
+                    f"Explicit pivot declared: {pivot_match.group(1)[:100]}"
+                )
 
     # Update command history (keep last 20)
     state["command_history"].extend(commands)
