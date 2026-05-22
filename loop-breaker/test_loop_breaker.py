@@ -127,13 +127,12 @@ assert code == 2, f"Expected block at budget limit, got exit {code}"
 assert "budget exceeded" in out.get("reason", "")
 print("  PASS: blocked at session budget limit (50 batches)")
 
-# --- Test 7: Revert operation triggers pivot detection ---
-print("\n[Test 7: git revert triggers pivot detection]")
+# --- Test 7: git checkout does NOT trigger (pivot-gate's job, not loop-breaker's) ---
+print("\n[Test 7: git checkout passes through (no false positive)]")
 reset()
 out, code = call_hook([make_bash_call("git checkout -- src/main.py")])
-assert code == 2, f"Expected block for revert, got exit {code}"
-assert "pivot" in out.get("reason", "").lower()
-print("  PASS: git checkout detected as design pivot")
+assert code == 0, f"git checkout should not trigger loop-breaker, got exit {code}"
+print("  PASS: git checkout not falsely detected as loop")
 
 # --- Test 8: Explicit PIVOT declaration ---
 print("\n[Test 8: Explicit PIVOT: marker in output]")

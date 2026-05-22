@@ -8,8 +8,11 @@ Detection signals:
 2. Same file edited N+ times in a batch window
 3. Alternating pattern (edit → test fail → edit → test fail → ...)
 4. Total batch count exceeds session budget
-5. Revert/reset operations (git checkout, git reset, rm of recent files)
+5. Session budget exceeded
 6. Explicit PIVOT declaration (agent says "PIVOT: reason")
+
+Note: Revert/reset detection is handled by pivot-gate (independent module)
+which uses a scoring system to avoid false positives on normal git operations.
 
 Fires on PostToolBatch — after a parallel batch completes, before next LLM call.
 Can block (exit 2) to stop the agent from continuing.
@@ -34,9 +37,6 @@ MAX_BATCHES_PER_SESSION = 50    # total batch budget
 PATTERN_WINDOW = 6              # how many recent batches to check for alternating pattern
 SESSION_TIMEOUT = 1800
 
-REVERT_PATTERN = re.compile(
-    r"git\s+(checkout|restore|reset\s+--hard|revert)\b|rm\s+-rf?\s"
-)
 PIVOT_PATTERN = re.compile(r"PIVOT:\s*(.+)", re.IGNORECASE)
 
 
@@ -168,14 +168,7 @@ def detect_loops(state: dict, tool_calls: list) -> list[str]:
             f"Session budget exceeded: {state['batch_count']}/{MAX_BATCHES_PER_SESSION} batches"
         )
 
-    # 6. Revert/reset operations (pivot signal)
-    for cmd in commands:
-        if REVERT_PATTERN.search(cmd):
-            reasons.append(
-                f"Design pivot detected — revert operation: '{cmd[:60]}'"
-            )
-
-    # 7. Explicit PIVOT declaration
+    # 6. Explicit PIVOT declaration (agent self-reports direction change)
     for call in tool_calls:
         if call.get("tool_name") == "Bash":
             stdout = call.get("tool_response", {}).get("stdout", "")

@@ -27,14 +27,19 @@ SESSION_TIMEOUT = 1800
 # Thresholds
 FAILURE_WARNING_AT = 2        # warn after N consecutive failures
 CHECKPOINT_EVERY_N_BATCHES = 10  # inject checkpoint every N batches
-MIN_SUBAGENT_OUTPUT_LENGTH = 200  # subagent output shorter than this gets checked
+MIN_SUBAGENT_OUTPUT_LENGTH = 100  # below this, check for substance
 
-# Subagent quality indicators (must have at least one if output is short)
 QUALITY_INDICATORS = re.compile(
     r"/[\w./]+|"           # file path
     r"`[^`]+`|"            # code reference
     r"line\s+\d+|:\d+|"   # line number
     r"\b(should|recommend|suggest|consider)\b",
+    re.IGNORECASE
+)
+
+COMPLETION_SIGNALS = re.compile(
+    r"\b(pass|passed|succeed|success|complete|fixed|resolved|"
+    r"no issues|no errors|no warnings|all tests|already)\b",
     re.IGNORECASE
 )
 
@@ -182,24 +187,33 @@ def handle_user_prompt_submit(input_data: dict, state: dict) -> dict:
 
 
 def handle_subagent_stop(input_data: dict, state: dict) -> dict:
-    """Block subagent if output lacks substance (short AND no quality indicators)."""
+    """Block subagent only if output is short AND lacks any substance or completion signal."""
     last_message = input_data.get("last_assistant_message", "")
     stripped = last_message.strip()
 
-    if len(stripped) < MIN_SUBAGENT_OUTPUT_LENGTH:
-        has_quality = bool(QUALITY_INDICATORS.search(stripped))
-        if not has_quality:
-            return {
-                "decision": "block",
-                "reason": (
-                    "Your response lacks actionable detail. Please include:\n"
-                    "- Specific file paths or line numbers\n"
-                    "- Code references\n"
-                    "- Concrete recommendations"
-                ),
-            }
+    if not stripped:
+        return {
+            "decision": "block",
+            "reason": "Empty response. Please provide findings or conclusions.",
+        }
 
-    return {}
+    if len(stripped) >= MIN_SUBAGENT_OUTPUT_LENGTH:
+        return {}
+
+    if COMPLETION_SIGNALS.search(stripped):
+        return {}
+
+    if QUALITY_INDICATORS.search(stripped):
+        return {}
+
+    return {
+        "decision": "block",
+        "reason": (
+            "Your response lacks actionable detail. Please include:\n"
+            "- Specific file paths or line numbers\n"
+            "- Code references or concrete conclusions"
+        ),
+    }
 
 
 def main():

@@ -125,7 +125,14 @@ out, code = call_hook("SubagentStop", {"last_assistant_message": "Done."})
 assert code == 2
 assert out.get("decision") == "block"
 assert "lacks actionable detail" in out.get("reason", "")
-print("  PASS: subagent blocked for insufficient output (no quality indicators)")
+print("  PASS: subagent blocked — 'Done.' has no substance")
+
+# --- Test 7b: SubagentStop — completion signal passes even if short ---
+print("\n[Test 7b: SubagentStop — 'No issues found' passes (completion signal)]")
+reset()
+out, code = call_hook("SubagentStop", {"last_assistant_message": "No issues found, all tests pass."})
+assert code == 0, f"Completion signal should pass, got exit {code}"
+print("  PASS: completion signal whitelisted")
 
 # --- Test 8: SubagentStop — short but with quality indicators passes ---
 print("\n[Test 8: SubagentStop — short output with file path passes]")

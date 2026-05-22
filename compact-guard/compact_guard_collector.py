@@ -28,7 +28,10 @@ TASK_DONE_PATTERN = re.compile(r"TASK_DONE:\s*(.+)", re.IGNORECASE)
 CRITICAL_PATTERN = re.compile(r"CRITICAL:\s*(.+)", re.IGNORECASE)
 CONTEXT_PATTERN = re.compile(r"CONTEXT:\s*(.+)", re.IGNORECASE)
 
-# Type grading: ARCHITECTURE/CRITICAL never auto-expire, TASK clears on TASK_DONE, CONTEXT is FIFO(5)
+# Type grading — all bounded to prevent context bloat on recovery
+MAX_ARCHITECTURE_ITEMS = 10
+MAX_CRITICAL_ITEMS = 5
+MAX_DECISION_ITEMS = 10
 MAX_CONTEXT_ITEMS = 5
 
 
@@ -80,11 +83,13 @@ def main():
             item = match.group(1).strip()[:200]
             if item not in memory.get("architecture", []):
                 memory.setdefault("architecture", []).append(item)
+                memory["architecture"] = memory["architecture"][-MAX_ARCHITECTURE_ITEMS:]
 
         for match in CRITICAL_PATTERN.finditer(stdout):
             item = match.group(1).strip()[:200]
             if item not in memory["critical_context"]:
                 memory["critical_context"].append(item)
+                memory["critical_context"] = memory["critical_context"][-MAX_CRITICAL_ITEMS:]
 
         for match in DECISION_PATTERN.finditer(stdout):
             item = match.group(1).strip()[:200]
