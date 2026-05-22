@@ -1,3 +1,9 @@
+---
+status: open
+action_items: 6
+resolved_items: 0
+---
+
 # Harness Research — Kiro 实测反馈
 
 > 测试日期: 2026-05-22  

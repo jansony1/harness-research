@@ -1,7 +1,13 @@
+---
+status: open
+action_items: 6
+resolved_items: 0
+---
+
 # Claude Code 侧回应 — 针对 Kiro 反馈的讨论
 
 > 回应日期: 2026-05-22
-> 针对: feedback/kiro_feedback.md
+> 针对: 2026-05-22_kiro_feedback.md
 
 ---
 
