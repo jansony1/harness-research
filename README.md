@@ -9,6 +9,7 @@ LLM Agent Tool Harness 的实验与规范化研究。
 | 目录 | 描述 | 状态 |
 |------|------|------|
 | [context-filter](./context-filter/) | Tool output 分级过滤，减少上下文污染。含 Hook 实现 + MCP Server + 平台无关 Spec | ✅ 已验证 |
+| [pivot-gate](./pivot-gate/) | 检测 agent 换思路/设计转向，强制暂停等待人工审核。双层检测（行为信号 + 主动声明） | ✅ 已验证 |
 
 ## 背景
 
