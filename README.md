@@ -35,6 +35,7 @@ LLM 决定停止?
     │
     ▼
 [Stop] ──────────── stop-gate: 测试跑了吗？FIXME？→ 阻断
+                      eval-gate: 调用第二 LLM review diff → 阻断
     │
 [PreCompact] ─────── compact-guard: 保存关键决策，阻断过早压缩
 [PostCompact] ────── compact-guard: 注入恢复信息
@@ -52,8 +53,9 @@ LLM 决定停止?
 | [stop-gate](./stop-gate/) | Stop + PostToolUse | 停止前强制验证（测试/git/FIXME） | 6 |
 | [context-injector](./context-injector/) | SessionStart + UserPromptSubmit + PostToolUseFailure + PostToolBatch + SubagentStop | 多时机上下文注入 + subagent 质量门禁 | 10 |
 | [compact-guard](./compact-guard/) | PreCompact + PostCompact + PostToolUse | 记忆保护（类型分级 FIFO） | 7 |
+| [eval-gate](./eval-gate/) | TaskCompleted + Stop | 第二 LLM 评审门禁（语义 review） | 7 |
 
-**共计 8 个 harness，83 个测试场景。**
+**共计 9 个 harness，90 个测试场景。**
 
 ## 快速使用
 
