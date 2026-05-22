@@ -1,11 +1,17 @@
-# Context Filter — Claude Code PostToolUse Hook
+# Context Filter — Tool Output 分级过滤
 
 LLM agent 的 tool result 会全量注入上下文窗口，导致：
 - 大量无关信息稀释注意力
 - 加速触发 context compaction
 - 增加 token 消耗和成本
 
-本项目通过 Claude Code 的 `PostToolUse` hook 机制，在 tool output 返回给模型前进行分级过滤。
+本项目提供三种集成方式：
+
+| 方式 | 适用平台 | 说明 |
+|------|---------|------|
+| [PostToolUse Hook](./.claude/) | Claude Code | Hook 拦截替换 tool result |
+| [MCP Server](./mcp-server/) | 任意 MCP 客户端 (Claude Code, Kiro, Cursor, VS Code) | 平台无关的 `filtered_bash` tool |
+| [Spec](./spec.md) | 任意 agent 框架 | 行为规格，可适配到 LangChain/AutoGen 等 |
 
 ## 过滤策略（优先级从高到低）
 
